@@ -1,5 +1,3 @@
-from PySudoku import play
-
 assignments = []
 
 
@@ -28,11 +26,17 @@ def naked_twins(values):
         the values dictionary with the naked twins eliminated from peers.
     """
 
-    naked_twins_candidates = [box for box in values.keys() if len(values[box]) == 2]
-    naked_twins = [[box1, box2] for box1 in naked_twins_candidates \
-                   for box2 in peers[box1] \
-                   if values[box1] == values[box2]]
+    return eliminate_naked_twins_peers(get_naked_twins(values), values)
 
+
+def eliminate_naked_twins_peers(naked_twins, values):
+    '''
+    Get the intersection of the set of peers for each naked twin. 
+    For each peer that has > 2 choices, eliminate both digits of the twins.
+    :param naked_twins: Pair of naked twins 
+    :param values(dict): a dictionary of the form {'box_name': '123456789', ...} 
+    :return: the values dictionary with the naked twins eliminated from peers.
+    '''
     for pair in naked_twins:
         twin1, twin2 = pair
         digit1, digit2 = values[twin1][0], values[twin1][1]
@@ -41,6 +45,20 @@ def naked_twins(values):
             values = assign_value(values, peer, values[peer].replace(digit1, ''))
             values = assign_value(values, peer, values[peer].replace(digit2, ''))
     return values
+
+
+def get_naked_twins(values):
+    '''
+    Find all values with 2 choices for digits in the grid. 
+    Of those, pair off the values that are peers of each other and have same choices
+    :param values: 
+    :return: 
+    '''
+    naked_twins_candidates = [box for box in values.keys() if len(values[box]) == 2]
+    naked_twins = [[box1, box2] for box1 in naked_twins_candidates
+                   for box2 in peers[box1]
+                   if values[box1] == values[box2]]
+    return naked_twins
 
 
 def cross(A, B):
@@ -68,7 +86,12 @@ def display(values):
     Args:
         values(dict): The sudoku in dictionary form
     """
-    pass
+    width = 1 + max(len(values[s]) for s in boxes)
+    line = '+'.join(['-' * (width * 3)] * 3)
+    for r in rows:
+        print(''.join(values[r + c].center(width) + ('|' if c in '36' else '')
+                      for c in cols))
+        if r in 'CF': print(line)
 
 
 def eliminate(values):
@@ -81,7 +104,7 @@ def eliminate(values):
 
 
 def only_choice(values):
-    for unit in unitlist:
+    for unit in unit_list:
         for digit in '123456789':
             dplaces = [box for box in unit if digit in values[box]]
             if len(dplaces) == 1:
@@ -90,6 +113,11 @@ def only_choice(values):
 
 
 def reduce_puzzle(values):
+    '''
+    Perform elimination, only-choice and Naked twins on the Sudoku grid
+    :param values(dict): The sudoku in dictionary form
+    :return: values(dict): The sudoku in dictionary form after operations are done
+    '''
     stalled = False
     while not stalled:
         solved_values_before = len([box for box in values.keys() if len(values[box]) == 1])
@@ -142,12 +170,13 @@ boxes = cross(rows, cols)
 row_units = [cross(r, cols) for r in rows]
 column_units = [cross(rows, c) for c in cols]
 square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
-diagonal_units = [[rows[i] + cols[i] for i in range(len(rows))], [rows[i] + cols[::-1][i] for i in range(len(rows))]]
-unitlist = row_units + column_units + square_units + diagonal_units
-units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
+diagonal_units = [[row + column for row, column in zip(rows, cols)],
+                  [row + column for row, column in zip(rows, cols[::-1])]]
+unit_list = row_units + column_units + square_units + diagonal_units
+units = dict((s, [u for u in unit_list if s in u]) for s in boxes)
 peers = dict((s, set(sum(units[s], [])) - {s}) for s in boxes)
 
-if __name__ == '__main__':
+if __name__ == '__ma2in__':
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
     display(solve(diag_sudoku_grid))
 

@@ -1,16 +1,14 @@
 assignments = []
 
+rows = 'ABCDEFGHI'
+cols = '123456789'
+
 
 def assign_value(values, box, value):
     """
     Please use this function to update your values dictionary!
     Assigns a value to a given box. If it updates the board record it.
     """
-
-    # Don't waste memory appending actions that don't actually change any values
-    if values[box] == value:
-        return values
-
     values[box] = value
     if len(value) == 1:
         assignments.append(values.copy())
@@ -21,49 +19,42 @@ def naked_twins(values):
     """Eliminate values using the naked twins strategy.
     Args:
         values(dict): a dictionary of the form {'box_name': '123456789', ...}
-
     Returns:
         the values dictionary with the naked twins eliminated from peers.
     """
+    for unit in unitlist:
+        for box in unit:
+            if len(values[box]) == 2:
+                box_value = values[box]
+                naked_twin_found = False
 
-    return eliminate_naked_twins_peers(get_naked_twins(values), values)
+                # Check if there is a naked twin
+                for other_box in unit:
+                    if (other_box != box) and (values[box] == values[other_box]):
+                        naked_twin_found = True
 
-
-def eliminate_naked_twins_peers(naked_twins, values):
-    '''
-    Get the intersection of the set of peers for each naked twin. 
-    For each peer that has > 2 choices, eliminate both digits of the twins.
-    :param naked_twins: Pair of naked twins 
-    :param values(dict): a dictionary of the form {'box_name': '123456789', ...} 
-    :return: the values dictionary with the naked twins eliminated from peers.
-    '''
-    for pair in naked_twins:
-        twin1, twin2 = pair
-        digit1, digit2 = values[twin1][0], values[twin1][1]
-        combined_peers = [peer for peer in peers[twin1] & peers[twin2] if len(values[peer]) > 2]
-        for peer in combined_peers:
-            values = assign_value(values, peer, values[peer].replace(digit1, ''))
-            values = assign_value(values, peer, values[peer].replace(digit2, ''))
+                # Erase values of other peers in unit
+                if naked_twin_found:
+                    for peer in unit:
+                        if values[peer] != box_value:
+                            values[peer] = values[peer].replace(box_value[0],'')
+                            values[peer] = values[peer].replace(box_value[1],'')
     return values
-
-
-def get_naked_twins(values):
-    '''
-    Find all values with 2 choices for digits in the grid. 
-    Of those, pair off the values that are peers of each other and have same choices
-    :param values: 
-    :return: 
-    '''
-    naked_twins_candidates = [box for box in values.keys() if len(values[box]) == 2]
-    naked_twins = [[box1, box2] for box1 in naked_twins_candidates
-                   for box2 in peers[box1]
-                   if values[box1] == values[box2]]
-    return naked_twins
 
 
 def cross(A, B):
     "Cross product of elements in A and elements in B."
-    return [a + b for a in A for b in B]
+    return [s + t for s in A for t in B]
+
+
+boxes = cross(rows, cols)
+row_units = [cross(r, cols) for r in rows]
+column_units = [cross(rows, c) for c in cols]
+square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
+diagonal_units = [list(r + c for r, c in zip(rows, cols)), list(r + c for r, c in zip(rows, reversed(cols)))]
+unitlist = row_units + column_units + square_units + diagonal_units
+units = dict((s, [u for u in unitlist if s in u]) for s in boxes)
+peers = dict((s, set(sum(units[s], [])) - set([s])) for s in boxes)
 
 
 def grid_values(grid):
@@ -76,8 +67,15 @@ def grid_values(grid):
             Keys: The boxes, e.g., 'A1'
             Values: The value in each box, e.g., '8'. If the box has no value, then the value will be '123456789'.
     """
-    grid = ['123456789' if value is '.' else value for value in grid]
-    return dict(zip(boxes, grid))
+    chars = []
+    digits = '123456789'
+    for c in grid:
+        if c in digits:
+            chars.append(c)
+        if c == '.':
+            chars.append(digits)
+    assert len(chars) == 81
+    return dict(zip(boxes, chars))
 
 
 def display(values):
@@ -92,6 +90,7 @@ def display(values):
         print(''.join(values[r + c].center(width) + ('|' if c in '36' else '')
                       for c in cols))
         if r in 'CF': print(line)
+    print
 
 
 def eliminate(values):
@@ -99,30 +98,28 @@ def eliminate(values):
     for box in solved_values:
         digit = values[box]
         for peer in peers[box]:
-            values = assign_value(values, peer, values[peer].replace(digit, ''))
+            # values[peer] = values[peer].replace(digit,'')
+            assign_value(values, peer, values[peer].replace(digit, ''))
     return values
 
 
 def only_choice(values):
-    for unit in unit_list:
+    for unit in unitlist:
         for digit in '123456789':
             dplaces = [box for box in unit if digit in values[box]]
             if len(dplaces) == 1:
-                values = assign_value(values, dplaces[0], digit)
+                # values[dplaces[0]] = digit
+                assign_value(values, dplaces[0], digit)
     return values
 
 
 def reduce_puzzle(values):
-    '''
-    Perform elimination, only-choice and Naked twins on the Sudoku grid
-    :param values(dict): The sudoku in dictionary form
-    :return: values(dict): The sudoku in dictionary form after operations are done
-    '''
+    solved_values = [box for box in values.keys() if len(values[box]) == 1]
     stalled = False
     while not stalled:
         solved_values_before = len([box for box in values.keys() if len(values[box]) == 1])
-        values = eliminate(values)
         values = only_choice(values)
+        values = eliminate(values)
         values = naked_twins(values)
         solved_values_after = len([box for box in values.keys() if len(values[box]) == 1])
         stalled = solved_values_before == solved_values_after
@@ -159,27 +156,12 @@ def solve(grid):
     Returns:
         The dictionary representation of the final sudoku grid. False if no solution exists.
     """
-    return search(values=grid_values(grid=grid))
+    return search(grid_values(grid))
 
 
-rows = 'ABCDEFGHI'
-cols = '123456789'
-
-boxes = cross(rows, cols)
-
-row_units = [cross(r, cols) for r in rows]
-column_units = [cross(rows, c) for c in cols]
-square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
-diagonal_units = [[row + column for row, column in zip(rows, cols)],
-                  [row + column for row, column in zip(rows, cols[::-1])]]
-unit_list = row_units + column_units + square_units + diagonal_units
-units = dict((s, [u for u in unit_list if s in u]) for s in boxes)
-peers = dict((s, set(sum(units[s], [])) - {s}) for s in boxes)
-
-if __name__ == '__ma2in__':
+if __name__ == '__main__':
     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
     display(solve(diag_sudoku_grid))
-
     try:
         from visualize import visualize_assignments
 
@@ -189,3 +171,21 @@ if __name__ == '__ma2in__':
         pass
     except:
         print('We could not visualize your board due to a pygame issue. Not a problem! It is not a requirement.')
+display(solve({"G7": "2345678", "G6": "1236789", "G5": "23456789", "G4": "345678",
+                       "G3": "1234569", "G2": "12345678", "G1": "23456789", "G9": "24578",
+                       "G8": "345678", "C9": "124578", "C8": "3456789", "C3": "1234569",
+                       "C2": "1234568", "C1": "2345689", "C7": "2345678", "C6": "236789",
+                       "C5": "23456789", "C4": "345678", "E5": "678", "E4": "2", "F1": "1",
+                       "F2": "24", "F3": "24", "F4": "9", "F5": "37", "F6": "37", "F7": "58",
+                       "F8": "58", "F9": "6", "B4": "345678", "B5": "23456789", "B6":
+                           "236789", "B7": "2345678", "B1": "2345689", "B2": "1234568", "B3":
+                           "1234569", "B8": "3456789", "B9": "124578", "I9": "9", "I8": "345678",
+                       "I1": "2345678", "I3": "23456", "I2": "2345678", "I5": "2345678",
+                       "I4": "345678", "I7": "1", "I6": "23678", "A1": "2345689", "A3": "7",
+                       "A2": "234568", "E9": "3", "A4": "34568", "A7": "234568", "A6":
+                           "23689", "A9": "2458", "A8": "345689", "E7": "9", "E6": "4", "E1":
+                           "567", "E3": "56", "E2": "567", "E8": "1", "A5": "1", "H8": "345678",
+                       "H9": "24578", "H2": "12345678", "H3": "1234569", "H1": "23456789",
+                       "H6": "1236789", "H7": "2345678", "H4": "345678", "H5": "23456789",
+                       "D8": "2", "D9": "47", "D6": "5", "D7": "47", "D4": "1", "D5": "36",
+                       "D2": "9", "D3": "8", "D1": "36"}))

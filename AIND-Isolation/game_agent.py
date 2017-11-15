@@ -42,7 +42,7 @@ def custom_score(game, player):
 
     own_moves = len(game.get_legal_moves(player))
     opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
-    return float(own_moves - opp_moves)
+    return float(random.uniform(0, 1) * own_moves - random.uniform(0, 1) * opp_moves)
 
 
 def custom_score_2(game, player):
@@ -75,7 +75,7 @@ def custom_score_2(game, player):
 
     own_moves = len(game.get_legal_moves(player))
     opp_moves = len(game.get_legal_moves(game.get_opponent(player)))
-    return float(random.uniform(0, 1) * own_moves - random.uniform(0, 1) * opp_moves)
+    return float(own_moves - opp_moves)
 
 
 def custom_score_3(game, player):
@@ -235,8 +235,10 @@ class MinimaxPlayer(IsolationPlayer):
             raise SearchTimeout()
 
         legal_moves = game.get_legal_moves()
-        return max(legal_moves, key=lambda m: self.min_value(game.forecast_move(m), depth)) \
-            if bool(legal_moves) else (-1, -1)
+        if bool(legal_moves):
+            return max(legal_moves, key=lambda m: self.min_value(game.forecast_move(m), depth))
+        else:
+            return (-1, -1)
 
     def terminal_test(self, game, depth):
         if self.time_left() < self.TIMER_THRESHOLD:
